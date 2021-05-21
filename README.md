@@ -7,6 +7,17 @@ Zero-Width Space Steganography. Encodes and decodes hidden messages as non print
 [![devDependencies Status](https://david-dm.org/offdev/zwsp-steg-js/dev-status.svg)](https://david-dm.org/offdev/zwsp-steg-js?type=dev)
 [![License](https://img.shields.io/github/license/offdev/zwsp-steg-js.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 
+## Single File
+copy content in test.js and use this
+```js
+(new Steganography()).encode('sample string')
+```
+NOTE:
+make sure to remove the example at the bottom if you dont want it.
+
+replace "sample string" with your string
+to decode replace encode with decode
+
 ### Installation
 ```bash
 $ npm install zwsp-steg
