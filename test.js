@@ -1,57 +1,85 @@
-const steg = require('./index');
-const test = require('ava');
+'use strict';
 
-const testCases = {
-    EMPTY_STRING: '',
-    ASCII: 'This is some generic string!',
-    MULTIBYTE_CHARS: '𠜎𠜱𠝹𠱓𠱸𠲖𠳏𠳕𩶘',
-    LOWEST_UNICODE: '\u0000',
-    HIGHEST_UNICODE: '\uffff',
-    LOWEST_AND_HIGHEST_UNICODE: '\u0000\uffff',
-};
+class Steganography {
+  MODE_ZWSP = 0;
+  MODE_FULL = 1;
 
-const testFn = (mode, m) => t => {
-    const e = steg.encode(m, mode);
-    const d = steg.decode(e, mode);
-    t.is(d, m);
-};
+  ZERO_WIDTH_SPACE = '\u200b';
+  ZERO_WIDTH_NON_JOINER = '\u200c';
+  ZERO_WIDTH_JOINER = '\u200d';
+  LEFT_TO_RIGHT_MARK = '\u200e';
+  RIGHT_TO_LEFT_MARK = '\u200f';
 
-const testFnFailEncode = (mode, m) => t => {
-    const error = t.throws(() => {
-        steg.encode(m, mode);
-    }, TypeError);
+  listZWSP = [
+    this.ZERO_WIDTH_SPACE,
+    this.ZERO_WIDTH_NON_JOINER,
+    this.ZERO_WIDTH_JOINER,
+  ];
 
-    t.is(error.message, 'Cannot encode numbers!');
-};
+  listFull = [
+    this.ZERO_WIDTH_SPACE,
+    this.ZERO_WIDTH_NON_JOINER,
+    this.ZERO_WIDTH_JOINER,
+    this.LEFT_TO_RIGHT_MARK,
+    this.RIGHT_TO_LEFT_MARK,
+  ];
 
-const testFnFailDecode = (mode, m) => t => {
-    const error = t.throws(() => {
-        steg.decode(m, mode);
-    }, TypeError);
+  getPaddingLength(mode) {
+    return (mode === this.MODE_ZWSP) ? 11 : 7; // Keep padding as small as possible
+  }
 
-    t.is(error.message, 'Cannot decode numbers!');
-};
+  encode(message, mode = this.MODE_FULL) {
+    if ('string' !== typeof message) {
+      throw new TypeError('Cannot encode ' + typeof message + 's!');
+    }
+    let alphabet = (mode === this.MODE_ZWSP) ? this.listZWSP : this.listFull;
+    let padding = this.getPaddingLength(mode);
+    let encoded = '';
+    if (message.length === 0) {
+      return '';
+    }
 
-const testFnWrongEncoding = (e) => t => {
-    const encoding1 = (e !== steg.MODE_ZWSP ? steg.MODE_FULL : steg.MODE_ZWSP);
-    const encoding2 = (e !== steg.MODE_ZWSP ? steg.MODE_ZWSP : steg.MODE_FULL);
-    const error = t.throws(() => {
-        let e = steg.encode('a', encoding1);
-        steg.decode(e, encoding2);
-    }, TypeError);
+    for (let i = 0; i < message.length; i++) {
+      let code = '0'.repeat(padding) + message.charCodeAt(i).toString(alphabet.length);
+      code = code.substr(code.length - padding);
+      for (let j = 0; j < code.length; j++) {
+        let index = parseInt(code.charAt(j));
+        encoded += alphabet[index];
+      }
+    }
+    return encoded;
+  }
 
-    t.is(error.message, 'Unknown encoding detected!');
-};
+  decode(message, mode = this.MODE_FULL) {
+    if ('string' !== typeof message) {
+      throw new TypeError('Cannot decode ' + typeof message + 's!');
+    }
+    let alphabet = (mode === this.MODE_ZWSP) ? this.listZWSP : this.listFull;
+    let padding = this.getPaddingLength(mode);
+    let encoded = '', decoded = '';
 
-Object.keys(testCases).forEach((k) => {
-    let m = testCases[k];
-    test(k+ ' (MODE_ZWSP)', testFn(steg.MODE_ZWSP, m));
-    test(k+ ' (MODE_FULL)', testFn(steg.MODE_FULL, m));
-});
+    for (let i = 0; i < message.length; i++) {
+      if (alphabet.includes(message.charAt(i))) {
+        encoded += alphabet.indexOf(message.charAt(i)).toString();
+      }
+    }
 
-test('ENCODE_NON_STRING_THROWS (MODE_ZWSP)', testFnFailEncode(steg.MODE_ZWSP, 0));
-test('DECODE_NON_STRING_THROWS (MODE_ZWSP)', testFnFailDecode(steg.MODE_ZWSP, 0));
-test('ENCODE_NON_STRING_THROWS (MODE_FULL)', testFnFailEncode(steg.MODE_FULL, 0));
-test('DECODE_NON_STRING_THROWS (MODE_FULL)', testFnFailDecode(steg.MODE_FULL, 0));
-test('DECODE_WRONG_ENCODING_THROWS (MODE_ZWSP->MODE_FULL)', testFnWrongEncoding(steg.MODE_ZWSP));
-test('DECODE_WRONG_ENCODING_THROWS (MODE_FULL->MODE_ZWSP)', testFnWrongEncoding(steg.MODE_FULL));
+    if (encoded.length % padding !== 0) {
+      throw new TypeError('Unknown encoding detected!');
+    }
+
+    let curEncodedChar = '';
+    for (let i = 0; i < encoded.length; i++) {
+      curEncodedChar += encoded.charAt(i);
+      if (i > 0 && (i + 1) % padding === 0) {
+        decoded += String.fromCharCode(parseInt(curEncodedChar, alphabet.length));
+        curEncodedChar = '';
+      }
+    }
+
+    return decoded;
+  }
+}
+
+console.log("'",(new Steganography()).encode('hello world!'),"'");
+console.log("'",(new Steganography()).decode('​​​​‏​‏​​​​‏​‌​​​​‏‌‎​​​​‏‌‎​​​​‏‍‌​​​​‌‌‍​​​​‏‎‏​​​​‏‍‌​​​​‏‍‏​​​​‏‌‎​​​​‏​​​​​​‌‌'),"'");
